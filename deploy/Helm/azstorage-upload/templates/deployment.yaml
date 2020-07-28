@@ -1,0 +1,115 @@
+##  Resources for the web tier
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.applicationName }}-web
+  labels:
+    app: {{ .Values.applicationName }}
+    component: web
+    chart: {{ template "common.chartName" . }}
+    release: {{ .Release.Name }}
+    revision: "{{ .Release.Revision }}"
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.web.replicas }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  minReadySeconds: 5 
+  selector:
+    matchLabels:
+      app: {{ .Values.applicationName }}
+      component: web
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.applicationName }}
+        component: web
+        chart: {{ template "common.chartName" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+        revision: "{{ .Release.Revision }}"
+        {{- if .Values.aadPodIdentity.enabled }}
+        aadpodidbinding: {{ .Values.aadPodIdentity.managedIdentity }}
+        {{- end }}
+      annotations:
+      # Configure gunicorn integration and logging
+        ad.datadoghq.com/{{ .Values.applicationName }}-web.check_names: '["gunicorn"]'
+        ad.datadoghq.com/{{ .Values.applicationName }}-web.init_configs: '[{}]'
+        ad.datadoghq.com/{{ .Values.applicationName }}-web.instances: |
+          [
+            {
+              "proc_name": "azstorage"
+            }
+          ]
+        # ad.datadoghq.com/{{ .Values.applicationName }}-web.logs: |
+        #   [
+        #     {
+        #       "type": "file",
+        #       "path": "/var/log/gunicorn/access.log",
+        #       "service": "azstorage-upload",
+        #       "source": "gunicorn"
+        #     },
+        #     {
+        #       "type": "file",
+        #       "path": "/var/log/gunicorn/error.log",
+        #       "service": "azstorage-upload",
+        #       "source": "gunicorn",
+        #       "log_processing_rules": [
+        #           {
+        #             "type": "multi_line",
+        #             "name": "log_start_with_date",
+        #             "pattern": "\[\d{4}-\d{2}-\d{2}"
+        #           }
+        #       ]
+        #     }
+        #   ]
+      {{- if .Values.rollDeploymentOnUpgrade }}
+        rollme: {{ randAlphaNum 5 | quote }}
+      {{- end }}
+        linkerd.io/inject: enabled
+    spec:
+      containers:
+      - name: {{ .Values.applicationName }}-web
+        image: "{{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}"
+        imagePullPolicy: {{ .Values.web.image.pullPolicy }}
+        env:
+        - name: DD_AGENT_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: AZURE_STORAGE_ACCOUNT_URL
+          value:  {{ .Values.azure.storageAccountUrl }}
+        - name: AZURE_STORAGE_CONTAINER_NAME
+          value:  {{ .Values.azure.containerName }}
+        - name: AZURE_TENANT_ID
+          value:  {{ .Values.azure.tenantId }}
+        - name: AZURE_CLIENT_ID
+          value:  {{ .Values.azure.clientId }}
+        - name: AZURE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.applicationName }}-azure-secrets
+              key: client-secret
+        {{- range $key, $value := .Values.web.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        resources: 
+{{ toYaml .Values.web.resources | indent 10 }}
+        # readinessProbe:
+        #   httpGet:
+        #     path: /healthz
+        #     port: 5000
+        #     scheme: HTTP
+        #   initialDelaySeconds: 30
+        #   periodSeconds: 10
+        # livenessProbe:
+        #   httpGet:
+        #     path: /healthz
+        #     port: 5000
+        #     scheme: HTTP
+        #   initialDelaySeconds: 60
+        #   periodSeconds: 20
+

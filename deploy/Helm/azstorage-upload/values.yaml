@@ -1,0 +1,62 @@
+###########################################################
+# Application Information
+###########################################################
+applicationName:	azstorage-upload
+
+# Enable to cause the deployment to roll pods on upgrades to force new containers
+rollDeploymentOnUpgrade: true
+
+host:
+  prefix: 'env-'
+  name: 'azstorage-upload'
+  domain: 'domain.local'
+
+azure:
+  storageAccountUrl: 'https://<storage_account>.blob.core.windows.net/'
+  containerName: 'upload'
+  tenantId: ''
+  clientSecret: <supply at command line>
+  clientId: ''
+
+web:
+  enabled: true
+  image:
+    repository: <registry_name>.azurecr.io/azstorage-upload
+    pullPolicy: Always
+
+  replicas: 1
+
+  resources:
+    requests:
+      cpu: 25m
+      memory: 25Mi
+    limits:
+      cpu: 100m
+      memory: 75Mi
+  
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8000
+
+  ingress:
+    enabled: true
+    tlsEnabled: true
+
+  # Supply additional environment variables for any application settings
+  # env:
+  # - key: ENVIRONMENT_VAR1
+  #   value: value1
+  # - key: ENVIRONMENT_VAR2
+  #   value: value2
+
+###########################################################
+# Azure Managed Identity
+###########################################################
+aadPodIdentity:
+  enabled: false
+  # subscriptionId:		''
+  # resourceGroup:		''
+  # managedUserName:	''
+  # managedClientId:	''
+  # managedIdentity:	''

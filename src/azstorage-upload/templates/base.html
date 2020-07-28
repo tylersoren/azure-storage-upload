@@ -1,0 +1,66 @@
+<!doctype html>
+<head>
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<div class="body">
+  <div class=heading-image>
+    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" height="40" width="250">
+  </div>
+  <div class=heading-title>
+    <h1>
+      Azure Storage File Upload
+    </h1>  
+  </div>
+</br>
+</div>
+<div class="navbar">
+  <div class="dropdown">
+    <button class="dropbtn"><b>Path:     </b>{{ current_folder }}
+      <i class="fa fa-caret-down"></i>
+    </button>
+    <div class="dropdown-content">
+      {% for folder in folders %} 
+      <a href="/?folder={{ folder }}">{{ folder }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="dropdown" style="float: right;">
+    <button class="dropbtn"><b>User:  </b>{{ user.get("name") }} 
+      <i class="fa fa-caret-down"></i>
+    </button>
+    <div class="dropdown-content">
+      <a href="/logout">Logout</a>
+    </div>
+  </div>
+</div> 
+<div class="body">
+  <h2>Select a file to upload</h2>
+  <form action="" method=post enctype=multipart/form-data>
+    <p><input type=file accept=".csv,.txt,.dat,.json" name=file>
+        <input type=submit value=Upload>
+  </form>
+  </br>
+  {% block content %}{% endblock %}
+  </br>
+  <hr>
+  <h3>Existing files</h3>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Size</th>
+        <th>Uploaded By</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for blob in blobs %}  
+    <tr>
+      <td>{{blob.name}}</td>
+      <td>{{blob.size}}</td>
+      <td>{{blob.uploaded_by}}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>

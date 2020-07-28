@@ -1,0 +1,33 @@
+{{- if .Values.aadPodIdentity.enabled }}
+apiVersion: "aadpodidentity.k8s.io/v1"
+kind: AzureIdentity
+metadata:
+  name: azure-identity-{{ .Values.aadPodIdentity.managedIdentity }}
+  labels:
+    app: {{ .Values.applicationName }}
+    chart: {{ template "common.chartName" . }}
+    release: {{ .Release.Name }}
+    revision: "{{ .Release.Revision }}"
+    heritage: {{ .Release.Service }}
+  annotations:
+    # Identity can only be used in the namespace that it is created in
+    aadpodidentity.k8s.io/Behavior: namespaced
+spec:
+  type: 0
+  ResourceID: /subscriptions/{{ .Values.aadPodIdentity.subscriptionId }}/resourcegroups/{{ .Values.aadPodIdentity.resourceGroup }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{{ .Values.aadPodIdentity.managedUserName }}
+  ClientID: {{ .Values.aadPodIdentity.managedClientId }}
+---
+apiVersion: "aadpodidentity.k8s.io/v1"
+kind: AzureIdentityBinding
+metadata:
+  name: azure-identity-binding-{{ .Values.aadPodIdentity.managedIdentity }}
+  labels:
+    app: {{ .Values.applicationName }}
+    chart: {{ template "common.chartName" . }}
+    release: {{ .Release.Name }}
+    revision: "{{ .Release.Revision }}"
+    heritage: {{ .Release.Service }}
+spec:
+  AzureIdentity: azure-identity-{{ .Values.aadPodIdentity.managedIdentity }}
+  Selector: {{ .Values.aadPodIdentity.managedIdentity }}
+{{- end }}

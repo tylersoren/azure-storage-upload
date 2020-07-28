@@ -1,0 +1,63 @@
+name: $(Version.Major).$(Version.Minor).$(Rev:r)
+
+variables:
+  - group: deploymentautomation
+  - group: "Kubernetes Active Cluster"
+  - name: ApplicationName
+    value: azstorage-upload
+
+trigger:
+  - master
+
+resources:
+  repositories:
+  - repository: templates
+    type: git
+    name: pipeline-templates
+    ref: refs/tags/v2.0
+  - repository: posh-k8s-tools
+    type: git
+    name: posh-k8s-tools
+    ref: refs/tags/v1.0
+    
+stages:
+- template: base-container-build.yaml@templates
+
+- template: base-helm-build.yaml@templates
+
+# PR Deploy
+- template: base-helm-deploy.yaml@templates
+  parameters:
+    Environment: pr
+    ChartParameters: web.image.tag=$newTag,host.prefix=$newTag-,azure.clientSecret=$secret1
+    ApplicationName: $(ApplicationName)
+    ClusterName: "kube-dev-$(active_cluster)"
+    Subscription: dev
+    DependsOn: Build_Helm
+    NeedsCert: true
+    secret1: dev_client_secret
+
+# QA Deploy
+- template: base-helm-deploy.yaml@templates
+  parameters:
+    Environment: qa
+    ChartParameters: azure.clientSecret=$secret1
+    ApplicationName: $(ApplicationName)
+    ClusterName: "kube-dev-$(active_cluster)"
+    Subscription: dev
+    DependsOn: Build_Helm
+    NeedsCert: true
+    secret1: dev_client_secret
+
+# Prod Deploy
+- template: base-helm-deploy.yaml@templates
+  parameters:
+    Environment: prod
+    ChartParameters: azure.clientSecret=$secret1
+    ApplicationName: $(ApplicationName)
+    ClusterName: "kube-prod-$(active_cluster)"
+    Subscription: prod
+    DependsOn: Deploy_Helm_qa
+    NeedsCert: true
+    secret1: prod_client_secret
+

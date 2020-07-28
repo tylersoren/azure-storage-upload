@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.applicationName }}-web-service
+  labels:
+    app: {{ .Values.applicationName }}
+    component: web
+    chart: {{ template "common.chartName" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    revision: "{{ .Release.Revision }}"
+spec:
+  selector:
+    app: {{ .Values.applicationName }}
+    component: web
+  ports:
+    - port: {{ .Values.web.service.port }}
+      targetPort: {{ .Values.web.service.targetPort }}
+  type: {{ .Values.web.service.type }}

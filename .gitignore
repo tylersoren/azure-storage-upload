@@ -1,0 +1,8 @@
+.vscode/
+__pycache__/
+flask_session/
+envfile
+.venv/
+
+# Selenium gecko driver log output
+geckodriver.log
