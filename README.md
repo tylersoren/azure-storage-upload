@@ -3,11 +3,11 @@ This app runs a simple Python Flask web server for uploading files to an Azure S
 
 If not authenticated the user will see the following logon prompt when opening the site
 
-![alt_text][login]
+![Login Prompt][login]
 
 Once logged in they will be able to select the folders that they have access to from the drop-down, any existing files in that folder, and a drag and drop area that they can drop files into or click to enter a selection dialog. They can also enter an optional subfolder path to drop the file in.
 
-![alt_text][main_page]
+![Main page view][main_page]
 
 # Roles
 
@@ -17,7 +17,7 @@ These roles are mapped to the Azure AD Groups under the "Enterprise Applications
 
 Mappings to the other roles in dev can be made manually if needed for testing. AD groups are mapped to Azure AD application roles in the Azure Portal under Azure AD --> Enterprise Applications.  Select the "Azure Storage Upload" app for the appropriate environment and then add assignments under "Users and Groups"
 
-![alt_text][permissions]
+![Azure AD Permissions][permissions]
 
 # Getting Started
 This app was built with Python3.  Install Python3 and PIP prior to working with this repo.  The Python package dependencies can be installed with:
