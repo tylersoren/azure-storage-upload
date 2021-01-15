@@ -1,14 +1,24 @@
 # Requires Python 3.8
-
-import os, uuid, requests
 from flask import Flask, request, session, redirect, url_for, render_template
-from werkzeug.utils import secure_filename
-from azure.storage.blob import BlobServiceClient, BlobClient
-from azure.identity import ClientSecretCredential
-from azure.core.exceptions import ResourceNotFoundError
 from flask_session import Session  # https://pythonhosted.org/Flask-Session
+import logging
 import msal
+import uuid
+# Import local files
+from azstorage import UserStorageSession, AzureStorage
 import app_config
+
+# Configure Default Logger - used by some imported modules like msal
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.WARNING)
+
+# Configure App Logger
+logger = logging.getLogger('azure_storage_app')
+logger.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', "%Y-%m-%d %H:%M:%S")
+ch.setFormatter(formatter)
+logger.addHandler(ch)
 
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_object(app_config)
@@ -19,115 +29,61 @@ Session(app)
 # and to generate https scheme when it is deployed behind reversed proxy.
 # See also https://flask.palletsprojects.com/en/1.0.x/deploying/wsgi-standalone/#proxy-setups
 from werkzeug.middleware.proxy_fix import ProxyFix
+
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
-# Get a token credential for authentication
-token_credential = ClientSecretCredential(
-    app.config['TENANT_ID'],
-    app.config['CLIENT_ID'],
-    app.config['CLIENT_SECRET']
-)
+# Create the Azure Storage connection object based on the app_config.py
+azure_storage = AzureStorage(app.config)
 
-# Create the BlobServiceClient and connect to the storage container
-try:
-    blob_service_client = BlobServiceClient(account_url=app.config['STORAGE_URL'], credential=token_credential)
-    container_name = app.config['CONTAINER_NAME']
-    container_client = blob_service_client.get_container_client(container_name)
-except Exception as e:
-    print(e)
 
 # Main page handling
 @app.route('/', methods=['GET', 'POST'])
 # @auth('user')
 def index():
-  # check if user logged in, if not redirect to login
-  if not session.get("user"):
+    # check if user logged in, if not redirect to login
+    if not session.get("user"):
         return redirect(url_for("login"))
-  
-  # Check if user token contains the proper role
-  if 'roles' not in session["user"]:
-        return render_template("not_authorized.html", message="User not assigned any roles for this application")
-  if not any(x in app.config['ROLES'].keys() for x in session["user"]["roles"]):
-        return render_template("not_authorized.html", message="User not assigned the proper role for access")
 
-  # Get folders that user has access to
-  folder_access = []
-  for role in session["user"]["roles"]:
-    folder_access += app.config["ROLES"][role]
-
-  # Get selected folder path or default to first available folder
-  current_folder = request.args.get('folder')
-  if not current_folder:
-      current_folder = folder_access[0]
-  else:
-    # Validate that user has access to the selected folder
-    if current_folder not in folder_access:
-      return render_template("not_authorized.html", message="User not assigned access to this folder")
-  path = app.config["PATHS"][current_folder]
-  
-  
-  
-  try:      
-      # List the blobs in the container from the specified folder
-      blob_list = container_client.list_blobs(name_starts_with=path, include='metadata')
-      blob_table = []
-      # Create table entries
-      for blob in blob_list:
-        relative_path = os.path.relpath(blob.name, path)
-        if not blob.metadata:
-          uploaded_by = ""
-        else:
-          uploaded_by = blob.metadata['uploaded_by']
-        if not '/' in relative_path:
-          blob_table.append(dict(name=blob.name, size=blob.size, uploaded_by=uploaded_by))
-
-  except Exception as e:
-      print(e)
-
-  # If request is a Post, handle the file upload
-  if request.method == 'POST':
+    auth = azure_storage.validate_user(session, request)
+    response = auth['response']
+    # If authorization was successful
+    if response.status_code==200:
     
-    # Check if file was included in the Post, if not return warning
-    file = request.files['file']
-    filename = secure_filename(file.filename)
-    if not filename:
-          return render_template("file_error.html", title="File Not Selected for Upload", 
-                message="Must select a file to upload first!", blobs=blob_table, 
-                user=session["user"], folders=folder_access, current_folder=current_folder)
+        # Create user session object
+        user_session = UserStorageSession(auth['path'], auth['user'])
 
-    try:
-        # Create a blob client using the local file name as the name for the blob
-        blob_client = blob_service_client.get_blob_client(container=container_name, blob=(path + filename))
-        try:
-            # Check if blob already exists
-            if blob_client.get_blob_properties()['size'] > 0:
-                print(filename + " already exists in the selected path. Skipping upload.")
-                return render_template("file_error.html", title="File already exists", 
-                    message="File already exists!", blobs=blob_table, 
-                    user=session["user"], folders=folder_access, current_folder=current_folder)
-        except ResourceNotFoundError as e:
-            # catch exception that indicates that the blob does not exist and we are good to upload file
-            pass
+        # Get blobs and folders for selected path and user
+        response = azure_storage.walk_blobs(user_session)
 
-        print("Uploading " + filename + " to Azure Storage on selected path.")
-        
-        # create metadata including the uploading user's name
-        metadata = {'uploaded_by': session["user"]["name"]}
-        # Upload the created file
-        blob_client.upload_blob(file, metadata=metadata)
+        # If request is a Post, handle the file upload
+        if request.method == 'POST':
+            file = request.files['file']
+            subfolder = request.form['subfolder']
+            response = azure_storage.upload_blob(file, subfolder, user_session)
 
-        # Update the table display with the new blob
-        blob_table.append(dict(name=blob_client.get_blob_properties().name, size=blob_client.get_blob_properties().size, 
-            uploaded_by=session["user"]["name"]))
-      
-    except Exception as e:
-      print(e)
+        # Check for delete flag and handle blob deletion
+        delete = request.args.get('delete')
+        if delete:
+            response = azure_storage.delete_blob(user_session, request.args.get('blob'))
 
-    return render_template('file_uploaded.html', title="File Uploaded", blobs=blob_table, 
-      user=session["user"], folders=folder_access, current_folder=current_folder)
+    # If response is empty or error_flags are set return the appropriate error,
+    # else return the valid response
+    if response is None:
+        return render_template("error.html", message="Unknown Error"), 404
+    
+    elif response.error_flag == 1:
+        return render_template("error.html", message=response.message), response.status_code
+    elif response.error_flag == 2:
+        return response.message, response.status_code
+    else:
+        return render_template('base.html',
+                            message=response.message,
+                            blobs=user_session.blob_table,
+                            user=auth['user'],
+                            folders=auth['folder_access'],
+                            current_folder=auth['current_folder'],
+                            subfolders=user_session.folder_list), response.status_code
 
-  return render_template('base.html', title="Upload New File", blobs=blob_table, 
-    user=session["user"], folders=folder_access, current_folder=current_folder)
 
 @app.route("/login")
 def login():
@@ -136,6 +92,7 @@ def login():
     # here we choose to also collect end user consent upfront
     auth_url = _build_auth_url(scopes=app_config.SCOPE, state=session["state"])
     return render_template("login.html", auth_url=auth_url, version=msal.__version__)
+
 
 @app.route(app_config.REDIRECT_PATH)  # Its absolute URL must match your app's redirect_uri set in AAD
 def authorized():
@@ -155,6 +112,7 @@ def authorized():
         _save_cache(cache)
     return redirect(url_for("index"))
 
+
 # Following functions are for interacting with Azure AD and handling token in cache
 @app.route("/logout")
 def logout():
@@ -163,26 +121,31 @@ def logout():
         app_config.AUTHORITY + "/oauth2/v2.0/logout" +
         "?post_logout_redirect_uri=" + url_for("index", _external=True))
 
+
 def _load_cache():
     cache = msal.SerializableTokenCache()
     if session.get("token_cache"):
         cache.deserialize(session["token_cache"])
     return cache
 
+
 def _save_cache(cache):
     if cache.has_state_changed:
         session["token_cache"] = cache.serialize()
+
 
 def _build_msal_app(cache=None, authority=None):
     return msal.ConfidentialClientApplication(
         app_config.CLIENT_ID, authority=authority or app_config.AUTHORITY,
         client_credential=app_config.CLIENT_SECRET, token_cache=cache)
 
+
 def _build_auth_url(authority=None, scopes=None, state=None):
     return _build_msal_app(authority=authority).get_authorization_request_url(
         scopes or [],
         state=state or str(uuid.uuid4()),
         redirect_uri=url_for("authorized", _external=True))
+
 
 def _get_token_from_cache(scope=None):
     cache = _load_cache()  # This web app maintains one cache per session
@@ -193,8 +156,9 @@ def _get_token_from_cache(scope=None):
         _save_cache(cache)
         return result
 
+
 app.jinja_env.globals.update(_build_auth_url=_build_auth_url)  # Used in template
 
 # Start the application
 if __name__ == '__main__':
-  app.run()
+    app.run()

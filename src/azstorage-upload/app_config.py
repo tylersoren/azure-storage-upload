@@ -37,7 +37,7 @@ ROLES = dict(
 PATHS = dict(
   # root = "",
   Finance = "finance/",
-  Marketing  = "wufoo/",
+  Marketing  = "marketing/",
   Shared = "shared/",
   Sandbox = "sandbox/"
 )

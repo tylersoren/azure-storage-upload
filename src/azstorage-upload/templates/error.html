@@ -2,16 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Login</title>
+    <title>Error - Azure Storage Upload</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <div class="body">
     <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" height="60" width="60">
-        <h1>Azure Storage Upload App</h1>
 
-        <li><a href='{{ auth_url }}'>Sign In</a></li>
-
-        <hr>
+    <h2>An error has occurred:</h2>
+    <p>{{ message }}</p>
+    <hr>
+    <a href="{{ url_for('index') }}">Return to Homepage</a>
 </div>
 </html>
-

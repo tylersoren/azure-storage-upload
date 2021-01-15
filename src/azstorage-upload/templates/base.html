@@ -1,11 +1,12 @@
 <!doctype html>
 <head>
-  <title>{{ title }}</title>
+  <title>Azure Storage Upload</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dropzone.css') }}">
 </head>
 <div class="body">
   <div class=heading-image>
-    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" height="40" width="250">
+    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" height="60" width="60">
   </div>
   <div class=heading-title>
     <h1>
@@ -14,9 +15,9 @@
   </div>
 </br>
 </div>
-<div class="navbar">
+<div class="navbar" id="navbar">
   <div class="dropdown">
-    <button class="dropbtn"><b>Path:     </b>{{ current_folder }}
+    <button class="dropbtn" id="current-folder"><b>Path:     </b>{{ current_folder }}
       <i class="fa fa-caret-down"></i>
     </button>
     <div class="dropdown-content">
@@ -26,41 +27,98 @@
     </div>
   </div>
   <div class="dropdown" style="float: right;">
-    <button class="dropbtn"><b>User:  </b>{{ user.get("name") }} 
+    <button class="dropbtn" id="current-user"><b>User:  </b>{{ user }} 
       <i class="fa fa-caret-down"></i>
     </button>
     <div class="dropdown-content">
-      <a href="/logout">Logout</a>
+      <a href="/logout" id="logout">Logout</a>
     </div>
   </div>
 </div> 
 <div class="body">
-  <h2>Select a file to upload</h2>
-  <form action="" method=post enctype=multipart/form-data>
-    <p><input type=file accept=".csv,.txt,.dat,.json" name=file>
-        <input type=submit value=Upload>
+</br>
+
+  <form action="/?folder={{current_folder}}" method="POST" class="dropzone needsclick" id="dropzone">
+    <div class="myarrow">Subfolder (Optional): 
+      <input list="subfolder" type="text" name="subfolder" id="optional-subfolder">
+    </div>
+    <div class="dz-message needsclick">
+      <button type="button" class="dz-button"><strong>Drop files here or click to upload.</strong></button><br />
+    </div>
+    <datalist id="subfolder">
+      {% for folder in subfolders %}
+      <option value="{{folder}}"/>
+      {% endfor %}
+    </datalist>
   </form>
+
+
   </br>
-  {% block content %}{% endblock %}
+  <div id="response-message">
+    <h2>{{ message }}</h2>
+  </div>
   </br>
   <hr>
-  <h3>Existing files</h3>
-  <table class="table">
+  <h3>Existing files
+    <a href="/?folder={{ current_folder }}" id="refresh">
+      <img alt="Refresh" src="{{ url_for('static', filename='images/refresh.png') }}" width="30" height="30">
+    </a>
+  </h3>
+  
+  <table class="table" id="file-table">
     <thead>
       <tr>
         <th>Name</th>
-        <th>Size</th>
+        <th>Path</th>
+        <th>Size (KB)</th>
         <th>Uploaded By</th>
+        <th>Delete</th>
       </tr>
     </thead>
     <tbody>
     {% for blob in blobs %}  
     <tr>
-      <td>{{blob.name}}</td>
+      <td>{{blob.filename}}</td>
+      <td>{{blob.path}}</td>
       <td>{{blob.size}}</td>
       <td>{{blob.uploaded_by}}</td>
+      <td  style="text-align:center">
+      {% if blob.delete_enabled %}
+        <a href="/?folder={{current_folder}}&delete=True&blob={{blob.name}}">
+          <img alt="delete {{blob.name}}" src="{{ url_for('static', filename='images/delete.png') }}" width="18" height="18">
+        </a>
+      {% endif %}
+      </td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
+  <script src="{{ url_for('static', filename='js/dropzone.js') }}"></script>
+  <script>
+    Dropzone.options.dropzone = {
+
+        timeout: 600000,
+
+        // dictDefaultMessage: "Drop files here or click to upload",
+        init : function() {
+
+          dropzone = this;
+          this.on("uploadprogress",function(file,progress,bytesSent){
+              if(progress == 100) {
+                console.log("File sending");
+                message = file.previewElement.getElementsByClassName("dz-upload")[0];
+                message.innerHTML = "Processing...";
+              }
+              
+          });
+
+
+    }
+    };
+  </script>
 </div>
+
+
+
+
+

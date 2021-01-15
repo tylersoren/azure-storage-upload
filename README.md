@@ -2,9 +2,10 @@
 This app runs a simple Python Flask web server for uploading files to an Azure Storage container and listing the contents of that container.  It is configured to authenticate users against Azure AD and checks that they have been granted the proper roles.  Based on role, the user is granted access to certain folders in the container.
 
 If not authenticated the user will see the following logon prompt when opening the site
+
 ![alt_text][login]
 
-Once logged in they will be able to select the folders that they have access to from the drop-down, any existing files in that folder, and a file selection box to choose a file to upload.
+Once logged in they will be able to select the folders that they have access to from the drop-down, any existing files in that folder, and a drag and drop area that they can drop files into or click to enter a selection dialog. They can also enter an optional subfolder path to drop the file in.
 
 ![alt_text][main_page]
 
@@ -40,6 +41,8 @@ The app expects environment variables to be set for config purposes
 * AZURE_CLIENT_ID - set this to the the Application ID for your application registration
 * AZURE_CLIENT_SECRET - set this to the the secret key for your application registration
 
+There are additional configurations to be made in the app_config.py file including the roles and related container paths.
+
 # Local Build and Test
 The app can be run locally by running the following command and will run a local web server on port 5000
 
@@ -65,7 +68,7 @@ The requirements file includes a the Green Unicorn (gunicorn) WSGI server for se
 
 # Reference
 
-This app relies heavily on the Azure Python SDK for storage and Microsoft Authentication Library (MSAL). Pages are generated and served using the Python Flask web framework and the Gunicorn WSGI HTTP server. The following links are provided for reference.
+This app relies heavily on the Azure Python SDK for storage and Microsoft Authentication Library (MSAL). Pages are generated and served using the Python Flask web framework and the Gunicorn WSGI HTTP server. The Drag and Drop functionality is provided by the open-source Dropzone project and is handled client-side (files are included in the static assets). The following links are provided for reference.
 
 * [Azure Python SDK](https://azure.github.io/azure-sdk-for-python/)
 * [Azure Python Storage Blobs library](https://azuresdkdocs.blob.core.windows.net/$web/python/azure-storage-blob/12.3.1/index.html)
@@ -74,6 +77,7 @@ This app relies heavily on the Azure Python SDK for storage and Microsoft Authen
 * [MSAL Flask Sample](https://github.com/Azure-Samples/ms-identity-python-webapp)
 * [Flask](https://flask.palletsprojects.com/en/1.1.x/)
 * [Gunicorn](https://docs.gunicorn.org/en/stable/)
+* [Dropzone](https://www.dropzonejs.com/#) 
 
 
 [login]: ./docs/images/login.png "User Login"

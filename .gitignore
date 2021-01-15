@@ -6,3 +6,9 @@ envfile
 
 # Selenium gecko driver log output
 geckodriver.log
+
+# Testing files
+.pytest_cache/
+/tests/integration/assets/
+/tests/integration/report.html
+geckodriver.log
