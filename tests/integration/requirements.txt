@@ -1,0 +1,6 @@
+-i https://pypi.org/simple
+selenium
+pytest
+pytest-html
+pytest-bdd
+pytest-dependency

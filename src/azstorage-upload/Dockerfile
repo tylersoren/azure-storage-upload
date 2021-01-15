@@ -1,5 +1,4 @@
-# FROM python:3.8-slim
-FROM <registry_name>.azurecr.io/python3.8:latest
+FROM python:3.8-slim
 
 LABEL maintainer="<email address here>"
 
